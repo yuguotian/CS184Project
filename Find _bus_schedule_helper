@@ -1,0 +1,91 @@
+    private static void get_bus_info_helper(ArrayList<String> stop_ids){
+
+        final int total_size = stop_ids.size(); // The num of stops we need to query
+        final int count_helper[] = {0};
+
+        Calendar cal = Calendar.getInstance(); //Get current date
+        cal.setTime(cal.getTime());
+        final int time_identifier = cal.get(Calendar.DAY_OF_WEEK); // 0 for weekday, 1 for Saturday, 2 for Sunday
+
+        final HashMap<String, ArrayList<Route_service>> all_stop_service_info = new HashMap<>(); // Hashmap to catch all stop service info
+        final HashMap<String, Stop> all_stop_basic_info = new HashMap<>(); // Hashmap to catch all stop basic info, key is the stop_id
+
+        for(final String stop_id : stop_ids){ //Query stop one by one
+            DatabaseReference stop_info = db.getReference().child("Stops").child("Stop: " + stop_id);
+            ArrayList<Route_service> service_temp = new ArrayList<>();
+            all_stop_service_info.put(stop_id, service_temp);
+
+            stop_info.addListenerForSingleValueEvent(new ValueEventListener() {
+                @Override
+                public void onDataChange(DataSnapshot dataSnapshot) {
+                    Stop stop = dataSnapshot.getValue(Stop.class);
+                    all_stop_basic_info.put(stop_id, stop);
+                    if(time_identifier == 7){ // Saturday
+                        for(DataSnapshot data : dataSnapshot.getChildren()){
+                            //Log.d("Long Message", "onDataChange: Saturday  " + data.getKey());
+                            if(data.getKey().compareTo("Saturday Service") == 0){
+                                GenericTypeIndicator<ArrayList<Route_service>> t = new GenericTypeIndicator<ArrayList<Route_service>>(){};
+                                ArrayList<Route_service> route_services = data.getValue(t);
+                                all_stop_service_info.get(stop_id).addAll(route_services);
+                            }
+                            else if(data.getKey().compareTo("Special_Saturday Service") == 0){
+                                GenericTypeIndicator<ArrayList<Route_service>> t = new GenericTypeIndicator<ArrayList<Route_service>>(){};
+                                ArrayList<Route_service> route_services = data.getValue(t);
+                                all_stop_service_info.get(stop_id).addAll(route_services);
+                            }
+                        }
+                    }
+                    else if(time_identifier == 0){ // Sunday
+                        for(DataSnapshot data : dataSnapshot.getChildren()){
+                            //Log.d("Long Message", "onDataChange: Sunday " + data.getKey());
+                            if(data.getKey().compareTo("Saturday Service") == 0){
+                                GenericTypeIndicator<ArrayList<Route_service>> t = new GenericTypeIndicator<ArrayList<Route_service>>(){};
+                                ArrayList<Route_service> route_services = data.getValue(t);
+                                all_stop_service_info.get(stop_id).addAll(route_services);
+                            }
+                            else if(data.getKey().compareTo("Special_Sunday Service") == 0){
+                                GenericTypeIndicator<ArrayList<Route_service>> t = new GenericTypeIndicator<ArrayList<Route_service>>(){};
+                                ArrayList<Route_service> route_services = data.getValue(t);
+                                all_stop_service_info.get(stop_id).addAll(route_services);
+                            }
+                        }
+                    }
+                    else{ //Workday
+                        for(DataSnapshot data : dataSnapshot.getChildren()){
+                            //Log.d("Long Message", "onDataChange: Saturday  " + data.getKey());
+                            if(data.getKey().compareTo("Weekday Service") == 0){
+                                GenericTypeIndicator<ArrayList<Route_service>> t = new GenericTypeIndicator<ArrayList<Route_service>>(){};
+                                ArrayList<Route_service> route_services = data.getValue(t);
+                                all_stop_service_info.get(stop_id).addAll(route_services);
+                            }
+                            else if(data.getKey().compareTo("Special_Weekday Service") == 0){
+                                GenericTypeIndicator<ArrayList<Route_service>> t = new GenericTypeIndicator<ArrayList<Route_service>>(){};
+                                ArrayList<Route_service> route_services = data.getValue(t);
+                                all_stop_service_info.get(stop_id).addAll(route_services);
+                            }
+                        }
+                    }
+                    count_helper[0]++;
+                    get_bus_info_helper_finish(all_stop_basic_info, all_stop_service_info, total_size, count_helper[0]);
+                }
+
+                @Override
+                public void onCancelled(DatabaseError databaseError) {
+
+                }
+            });
+        }
+
+    }
+
+    private static void get_bus_info_helper_finish(HashMap<String, Stop> all_stop_basic_info, HashMap<String, ArrayList<Route_service>> all_stop_service_info, int total_size, int current_size){
+        if(current_size == total_size){
+            //Define your operation
+            for(String s : all_stop_basic_info.keySet()){
+                Log.d("Long Message", "get_bus_info_helper_finish: " + all_stop_basic_info.get(s).getStop_id());
+            }
+            for(String s : all_stop_service_info.keySet()){
+                Log.d("Long Message", "get_bus_info_helper_finish: " + all_stop_service_info.get(s).get(0).getRoute_id());
+            }
+        }
+    }
