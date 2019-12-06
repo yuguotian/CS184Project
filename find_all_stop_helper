@@ -1,4 +1,38 @@
-private static Arraylist<Stop> all_stops = new Arraylist<>();
+private static HashMap<String, Stop> all_stops = new HashMap<>();
+
+   public static class Stop implements Serializable {
+
+        private Double latitude;
+        private Double longitude;
+        private String name;
+        private int stop_id;
+
+
+        public Stop(double longitude, double latitude, String name, int id){
+            this.latitude = latitude;
+            this.longitude = longitude;
+            this.name = name;
+            this.stop_id = id;
+        }
+
+        public Double getLatitude(){
+            return latitude;
+        }
+
+        public Double getLongitude(){
+            return longitude;
+        }
+
+        public String getName(){
+            return name;
+        }
+
+        public int getStop_id(){
+            return stop_id;
+        }
+
+        public Stop(){}
+    }
     
     private static void collectBasic_Stop_info(){
         DatabaseReference stop = db.getReference().child("Basic_Stops");
