@@ -2,6 +2,8 @@ package edu.ucsb.cs.cs184.jiqi_wang.courseproject;
 
 import androidx.annotation.NonNull;
 import androidx.core.app.ActivityCompat;
+import androidx.core.app.NotificationCompat;
+import androidx.core.app.NotificationManagerCompat;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.FragmentActivity;
 import androidx.fragment.app.FragmentManager;
@@ -9,6 +11,10 @@ import androidx.fragment.app.FragmentManager;
 import android.Manifest;
 import android.app.AlertDialog;
 import android.app.Dialog;
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -16,6 +22,7 @@ import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.location.Location;
 import android.location.LocationManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.StrictMode;
 import android.util.Log;
@@ -25,6 +32,9 @@ import android.widget.Toast;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.common.GoogleApiAvailability;
+import com.google.android.gms.location.LocationCallback;
+import com.google.android.gms.location.LocationRequest;
+import com.google.android.gms.location.LocationResult;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
@@ -56,6 +66,8 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Random;
 
+import static java.security.AccessController.getContext;
+
 public class MapsActivity extends FragmentActivity implements OnMapReadyCallback {
 
     private static GoogleMap map;
@@ -63,10 +75,12 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private final int Internet = 1002;
     private final int ERROR_DIALOG_REQUEST = 1003;
     private final int PERMISSIONS_REQUEST_ENABLE_GPS = 1004;
+    private final String CHANNEL_ID = "nearby_stop_notification";
+    private final int NOTIFICATION_ID = 002;
     private static float marker_user_distance = 0;
     private static String user_defined_time = "";
     private static boolean mLocationPermissionGranted = false;
-    private static boolean ready = false;
+    private static boolean send_notification_mode = false;
     private static boolean fab_expanded = false;
     private static boolean transit_result_returned = false;
     private FragmentManager fm = getSupportFragmentManager();
@@ -80,6 +94,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private static ArrayList<Polyline> find_route_polyline_arr = new ArrayList<>();
     private static ArrayList<Marker> find_transit_route_marker_arr = new ArrayList<>();
     private static ArrayList<Marker> user_marker = new ArrayList<>();
+    private static ArrayList<Marker> user_marker_count = new ArrayList<>();
+    private static String notification_stop_id = "";
 
     public static class Stop implements Serializable {
 
@@ -1080,6 +1096,10 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                     for(Marker m : find_transit_route_marker_arr){
                         m.remove();
                     }
+                    for(Marker m : user_marker_count){
+                        m.remove();
+                    }
+                    user_marker_count.clear();
                     find_transit_helper_arr.clear();
                     find_route_marker_arr.clear();
                 }
@@ -1103,6 +1123,10 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                     for(Marker m : user_marker){
                         m.remove();
                     }
+                    for(Marker m : user_marker_count){
+                        m.remove();
+                    }
+                    user_marker_count.clear();
                     user_marker.clear();
                     transit_result_returned = false;
                 }
@@ -1165,6 +1189,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             StrictMode.ThreadPolicy policy = new StrictMode.ThreadPolicy.Builder().permitAll().build();
             StrictMode.setThreadPolicy(policy);
         }
+        generateLocationUpdate();
 
         //Deal with fabs
         dealwithfabs();
@@ -1172,11 +1197,33 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         checkPermissions();
 
         user_location_client = LocationServices.getFusedLocationProviderClient(this);
+        user_location_client.requestLocationUpdates(mLocationRequest, mLocationCallBack, null);
         updateUserLocation();
 
         FirebaseApp.initializeApp(this);
         db = FirebaseDatabase.getInstance();
 
+    }
+
+    private void generateLocationUpdate(){
+        LocationRequest mLocationRequest = new LocationRequest();
+        mLocationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
+        mLocationRequest.setInterval(50000);
+        mLocationRequest.setFastestInterval(50000); // Update for every 50s
+        LocationCallback mLocationCallBack = new LocationCallback() {
+            @Override
+            public void onLocationResult(LocationResult locationResult) {
+                if (locationResult == null) {
+                    Log.d("Long Message", "onLocationResult: location  1" );
+                    return;
+                }
+                else{
+                    Location location = locationResult.getLastLocation();
+                    user_location = new LatLng(location.getLatitude() + location.getLongitude());
+                    send_notification(notification_stop_id, user_location);
+                }
+            }
+        };
     }
 
     private void clear_all(){
@@ -1185,6 +1232,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         find_transit_helper_arr.clear();
         find_transit_route_marker_arr.clear();
         find_route_polyline_arr.clear();
+        user_marker_count.clear();
         map.clear();
         LatLng current = new LatLng(user_location.lat, user_location.lng);
         displayNearByStop(current, 450, 0);
@@ -1210,6 +1258,15 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         });
     }
 
+    public static void setNotification_stop_id(String stop_id){
+        notification_stop_id = stop_id;
+    }
+
+    /*private void checkGeoLocation(LatLng ll){
+        if(ll.latitude < 33 || ll.latitude > 36 || ll.longitude > -118|| ll.longitude < -121){
+            user_location = new LatLng(34.412936, -119.847863);
+        }
+    }*/
 
     /**
      * Manipulates the map once available.
@@ -1238,16 +1295,42 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                     return;
                 }
                 else{
-                    for(Marker m : user_marker){
-                        m.remove();
-                    }
                     map.moveCamera(CameraUpdateFactory.newLatLng(latLng));
-                    MarkerOptions marker = new MarkerOptions();
-                    marker.position(latLng);
-                    marker.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_BLUE));
-                    marker.title("User Point");
-                    displayNearByStop(latLng, 450, 1);
-                    user_marker.add(map.addMarker(marker));
+                    if(user_marker_count.size() < 2){
+                        MarkerOptions marker = new MarkerOptions();
+                        marker.position(latLng);
+                        marker.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_BLUE));
+                        marker.title("User Point");
+                        displayNearByStop(latLng, 450, 1);
+                        Log.d("Long Message", "onMapClick: less" + user_marker_count.size());
+                        user_marker_count.add(map.addMarker(marker));
+                    }
+                    else if(user_marker_count.size() == 2){
+                        Log.d("Long Message", "onMapClick: equal" + user_marker_count.size());
+                        for(Marker m : user_marker_count){
+                            m.remove();
+                        }
+                        user_marker_count.clear();
+                        for(Marker m : user_marker){
+                            m.remove();
+                        }
+                        MarkerOptions marker = new MarkerOptions();
+                        marker.position(latLng);
+                        marker.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_BLUE));
+                        marker.title("User Point");
+                        displayNearByStop(latLng, 450, 1);
+                        user_marker_count.add(map.addMarker(marker));
+                    }
+                    else{
+                        Log.d("Long Message", "onMapClick: else" + user_marker_count.size());
+                        for(Marker m : user_marker_count){
+                            m.remove();
+                        }
+                        user_marker_count.clear();
+                        for(Marker m : user_marker){
+                            m.remove();
+                        }
+                    }
                 }
             }
         });
@@ -1265,12 +1348,20 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                     }
                     else{
                         if(find_route_marker_arr.size() == 0){ //First marker
+                            transit_result_returned = false;
                             marker_user_distance = calculateDistance(new LatLng(user_location.lat,user_location.lng), marker.getPosition());
                             showUserMarkerChoiceDialog();
                             find_route_marker_arr.add(marker);
                         }
                         else if(find_route_marker_arr.size() == 1){
                             Log.d("Long Message", "onMarkerClick: " + user_defined_time);
+                            String title = marker.getTitle();
+                            String[] title_arr = title.split(":");
+                            Log.d("Title", "onMarkerClick: " + marker.getTitle());
+                            if(title_arr.length == 2){
+                                notification_stop_id = title_arr[1];
+                            }
+                            showPositionTrackDialog();
                             find_route_marker_arr.add(marker);
                             transit_result_returned = true;
                             find_routes_between_two_marker(find_route_marker_arr.get(0), find_route_marker_arr.get(1));
@@ -1307,10 +1398,85 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         mMap.addPolyline(option2);*/
     }
 
+    public void createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            CharSequence name = "Personal Notifications";
+            String description = "Include all the personal notifications";
+            int importance = NotificationManager.IMPORTANCE_DEFAULT;
+
+            NotificationChannel notificationChannel = new NotificationChannel(CHANNEL_ID, name, importance);
+
+            notificationChannel.setDescription(description);
+
+            NotificationManager notificationManager = (NotificationManager) getSystemService (NOTIFICATION_SERVICE);
+            notificationManager.createNotificationChannel(notificationChannel);
+        }
+    }
+
+
+    private void send_notification(String stopID, LatLng current_location){
+        //Define your operation there, at this time, the all_stops will be filled with information
+        float[] distanceVal = new float[1];
+        if(stopID == ""){
+            return;
+        }
+
+        if (all_stops.containsKey(stopID)) {
+            Stop DestinationStop = all_stops.get(stopID);
+            String DestinationStopName;
+            DestinationStopName = DestinationStop.getName();
+            //Calculate Distance
+            Location.distanceBetween(current_location.latitude, current_location.longitude, DestinationStop.getLatitude(), DestinationStop.getLongitude(), distanceVal);
+
+
+            //Notification
+            if (distanceVal[0] < 300) {
+                Log.d("distance", "less than 200");
+                createNotificationChannel();
+
+                Intent mainIntent = new Intent(getApplicationContext(), getClass());
+                mainIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_ACTIVITY_CLEAR_TASK);
+
+                PendingIntent mainPendingIntent = PendingIntent.getActivity(getApplicationContext(), 0,mainIntent,PendingIntent.FLAG_ONE_SHOT);
+
+
+                NotificationCompat.Builder builder = new NotificationCompat.Builder(getApplicationContext(), CHANNEL_ID);
+
+                builder.setSmallIcon(R.drawable.ic_notifications_black_24dp);
+
+                builder.setContentTitle("BusTask");
+                builder.setContentText("Get ready for your Destination Stop: " + DestinationStopName);
+                builder.setPriority(NotificationCompat.PRIORITY_DEFAULT);
+                builder.setAutoCancel(true);
+                //Notification onClick
+                builder.setContentIntent(mainPendingIntent);
+                //Vibrate if sound if turned off
+                builder.setVibrate(new long[] { 1000, 1000, 1000, 1000, 1000, 1000, 1000});
+                //Notification Sound
+                Notification notification = builder.build();
+                notification.defaults = Notification.DEFAULT_SOUND;
+//
+//                notification.defaults |= Notification.DEFAULT_VIBRATE;
+                //Notification Initialize
+                NotificationManagerCompat notificationManagerCompat = NotificationManagerCompat.from(getApplicationContext());
+                notificationManagerCompat.notify(NOTIFICATION_ID, builder.build());
+            }
+
+            Log.d("distance", Float.toString(distanceVal[0]));
+        }
+        else {
+            Log.d("distance", "invalid stop id");
+        }
+
+
+
+
+    } //End of do_operation
+
     //Dialogs
-    public void showUserPointDialog(){
-        UserMarkerDialog u = new UserMarkerDialog();
-        u.show(getSupportFragmentManager(), "User");
+    public void showPositionTrackDialog(){
+        bus_position_track_dialog u = new bus_position_track_dialog();
+        u.show(getSupportFragmentManager(), "Position_track");
     }
 
     public void showUserMarkerChoiceDialog(){

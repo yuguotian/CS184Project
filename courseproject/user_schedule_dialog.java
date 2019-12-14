@@ -50,7 +50,20 @@ public class user_schedule_dialog extends DialogFragment {
            /* Typeface tf = Typeface.createFromAsset(getActivity().getAssets(),
                     "fonts/Arial.otf");
             tv.setTypeface(tf);*/
-            tv.setText("Currently, there are no schedules. \n You can try to add it in direction mode!");
+            tv.setText("Currently, there are no schedules. \nYou can try to add it in direction mode! \nBy tapping the second fab, the arrow one");
+            tv.setTextSize(20);
+            tv.setPadding(40,40,40,40);
+            ll.addView(tv);
+            return;
+        }
+        if(keys_primitive == ""){
+            TextView tv = new TextView(view.getContext());
+           /* Typeface tf = Typeface.createFromAsset(getActivity().getAssets(),
+                    "fonts/Arial.otf");
+            tv.setTypeface(tf);*/
+            tv.setText("Currently, there are no schedules. \nYou can try to add it in direction mode! \nBy tapping the second fab, the arrow one");
+            tv.setTextSize(20);
+            tv.setPadding(40,40,40,40);
             ll.addView(tv);
             return;
         }
@@ -62,7 +75,6 @@ public class user_schedule_dialog extends DialogFragment {
 
         for(int i = 0; i < key_arr.length; i++){
             schedule_count++;
-            Log.d("Long Message", "onViewCreated: " + key_arr[i]);
             final String current_key = key_arr[i];
             String primitive_schedule = sharedPreferences.getString(key_arr[i], null);
             if(primitive_schedule == null){
@@ -91,7 +103,7 @@ public class user_schedule_dialog extends DialogFragment {
                     newKey = newKey + current_key + ";";
                     final TextView tv = new TextView(view.getContext());
                     tv.setText("Schedule " + schedule_count + " :" + "\n" + "    Line " + schedule_arr[1] + "   Time:  " + schedule_arr[0]
-                            + "\n" + "    Take off Stop:" + schedule_arr[3] + "   Time:  " + schedule_arr[2] + "\n" + "    Transit Line: " + schedule_arr[5] + "  Transit Stop: " + schedule_arr[6] + "\n     Time:  " + schedule_arr[4]
+                            + "\n" + "    Take off Stop:" + schedule_arr[3] + "   Time:  " + schedule_arr[2] + "\n" + "    Transit Line: " + schedule_arr[5] + "  Transit Stop: " + schedule_arr[4] + "\n     Time:  " + schedule_arr[6]
                             + "\n" + "    Arrive Time: " + schedule_arr[7] + "\n");
                     tv.setClickable(true);
                     tv.setFocusable(true);
@@ -112,6 +124,7 @@ public class user_schedule_dialog extends DialogFragment {
             }
             Log.d("Long Message", "onViewCreated: " + primitive_schedule);
         }
+        Log.d("Long Message", "onViewCreated: after " + newKey );
         SharedPreferences.Editor editor = sharedPreferences.edit();
         editor.putString("key", newKey); //Update key
         editor.commit();

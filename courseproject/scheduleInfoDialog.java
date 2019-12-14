@@ -62,6 +62,7 @@ public class scheduleInfoDialog extends DialogFragment {
             TextView tv = new TextView(view.getContext());
             tv.setText("No service available!");
             ll.addView(tv);
+            MapsActivity.remove_temp_direction_marker();
             return;
         }
 
@@ -98,7 +99,13 @@ public class scheduleInfoDialog extends DialogFragment {
                             Long time = System.currentTimeMillis();
                             SharedPreferences sharedPref = getActivity().getSharedPreferences("user_schedules", 0);
                             String primitive_keys = sharedPref.getString("key", null);
-                            String combine_keys = primitive_keys + ";" + information_str;
+                            String combine_keys;
+                            if(primitive_keys != null){
+                                combine_keys = primitive_keys + Long.toString(time) + ";";
+                            }
+                            else{
+                                combine_keys = Long.toString(time) + ";";
+                            }
 
                             SharedPreferences.Editor editor = sharedPref.edit();
                             editor.putString("key", combine_keys);
