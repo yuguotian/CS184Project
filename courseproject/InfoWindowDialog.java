@@ -54,11 +54,11 @@ public class InfoWindowDialog extends DialogFragment {
         StopInfoClass info = (StopInfoClass)getArguments().getSerializable(ARG_PARAM1);
         LinearLayout ll = view.findViewById(R.id.scroll);
 
-        final ArrayList<FirebaseHelper.Route_service>  stop_info = info.getTime_schedule();
+        final ArrayList<MapsActivity.Route_service>  stop_info = info.getTime_schedule();
         Calendar now = Calendar.getInstance();
-        //String current_time = now.get(Calendar.HOUR_OF_DAY) + ":" + now.get(Calendar.MINUTE) + ":" + now.get(Calendar.SECOND);
-        String current_time = "13:45:22";
-        final HashMap<String, ArrayList<FirebaseHelper.Route_service>> separate_service = new HashMap<>();
+        String current_time = now.get(Calendar.HOUR_OF_DAY) + ":" + now.get(Calendar.MINUTE) + ":" + now.get(Calendar.SECOND);
+        //String current_time = "11:45:22"; temp
+        final HashMap<String, ArrayList<MapsActivity.Route_service>> separate_service = new HashMap<>();
 
         for(int i = 0; i < stop_info.size(); i++){
 
@@ -66,7 +66,7 @@ public class InfoWindowDialog extends DialogFragment {
             //Log.d("Long Message", "compareTime: remain  "+ remaining);
             if( remaining > 0){
                 if(separate_service.get(stop_info.get(i).getRoute_id()) == null){
-                    ArrayList<FirebaseHelper.Route_service> a = new ArrayList<>();
+                    ArrayList<MapsActivity.Route_service> a = new ArrayList<>();
                     a.add(stop_info.get(i));
                     separate_service.put(stop_info.get(i).getRoute_id(), a);
                 }
@@ -80,9 +80,11 @@ public class InfoWindowDialog extends DialogFragment {
         }
 
         for(String s : separate_service.keySet()){ //Data is ordered by route name
-            final ArrayList<FirebaseHelper.Route_service> specific_route_info = separate_service.get(s);
+            final ArrayList<MapsActivity.Route_service> specific_route_info = separate_service.get(s);
             for(int i = 0; i < specific_route_info.size(); i++){
                 TextView tv = new TextView(view.getContext());
+                tv.setTextSize(20);
+                tv.setPadding(20,0,20,5);
                 tv.setText(specific_route_info.get(i).getRoute_id() + ": " + specific_route_info.get(i).getRoute_name() + "       " + specific_route_info.get(i).getTime());
                 tv.setClickable(true);
                 tv.setFocusable(true);
@@ -93,7 +95,7 @@ public class InfoWindowDialog extends DialogFragment {
                         ArrayList<String> service = new ArrayList<>();
                         service.add(specific_route_info.get(temp).getService_id());
                         getDialog().dismiss();
-                        FirebaseHelper.display_specific_route(service);
+                        MapsActivity.display_specific_route(service);
                     }
                 });
                 ll.addView(tv);
@@ -110,14 +112,24 @@ public class InfoWindowDialog extends DialogFragment {
                     service.add(separate_service.get(s).get(0).getService_id());
                 }
                 getDialog().dismiss();
-                FirebaseHelper.display_specific_route(service);
+                MapsActivity.display_specific_route(service);
             }
         });
         ll.addView(b);
+
+        Button direction_button = new Button(view.getContext());
+        direction_button.setText("Go to there");
+        direction_button.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                //MapsActivity.
+            }
+        });
     }
 
-    public static int compareTime(String current, String target){ //Compare two time in HH:mm:ss format
+    public static int compareTime(String current, String target){ //Compare two time in HH:mm:ss format target - current
         target = target.replaceAll("\\s+","");
+        current = current.replaceAll("\\s+","");
         String[] current_time = current.split(":");
         String[] target_time = target.split(":");
 
@@ -136,4 +148,5 @@ public class InfoWindowDialog extends DialogFragment {
             return (Integer.parseInt(target_time[0]) -Integer.parseInt(current_time[0])) * 60 + Integer.parseInt(target_time[1]) - Integer.parseInt(current_time[1]);
         }
     }
+
 }

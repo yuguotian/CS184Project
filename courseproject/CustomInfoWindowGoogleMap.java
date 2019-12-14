@@ -32,7 +32,7 @@ public class CustomInfoWindowGoogleMap implements GoogleMap.InfoWindowAdapter {
         StopInfoClass stopInfoClass = (StopInfoClass)marker.getTag();
 
         LinearLayout ll = view.findViewById(R.id.scroll);
-        ArrayList<FirebaseHelper.Route_service>  stop_info = stopInfoClass.getTime_schedule();
+        ArrayList<MapsActivity.Route_service>  stop_info = stopInfoClass.getTime_schedule();
 
         for(int i = 0; i < stop_info.size(); i++){
             TextView tv = new TextView(view.getContext());

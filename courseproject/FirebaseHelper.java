@@ -5,6 +5,8 @@ import android.graphics.Color;
 import android.location.Location;
 import android.util.Log;
 
+import androidx.fragment.app.FragmentManager;
+
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
@@ -35,24 +37,19 @@ import java.util.Random;
  * Modified by Jake Guida on 11/6/2019
  */
 
-public class FirebaseHelper {
+public class FirebaseHelper { //Abandoned
 
     //Global Variable
     private static int global_count = 0;
     private static LatLng marker_location  = new LatLng(34.417099, -119.869120);
     private static LatLng user_location = new LatLng(34.434862, -119.848546);
-    private static ArrayList<Stop> user_stop = new ArrayList<>();
-    private static HashMap<String, Stop> all_stops = new HashMap<>();
-    private static ArrayList<Marker> find_transit_helper_arr = new ArrayList<>(); // Used for putting the two target markers
-    private static ArrayList<Marker> marker_arr = new ArrayList<>(); //Manage the markers
-    private static ArrayList<Stop> current_stop_list;
-    private static ArrayList<Stop> destination_stop_list;
     private static Marker m1; //For testing
     private static Marker m2; //For testing
     private static boolean temp_indicator = true;
+    private FragmentManager fm;
 
     //Class objects for database
-    public static class Stop implements Serializable {
+    /*public static class Stop implements Serializable {
 
         private Double latitude;
         private Double longitude;
@@ -275,14 +272,14 @@ public class FirebaseHelper {
 
     private static boolean initialized = false;
 
-    private static GoogleMap map; //Map Instance
+    private static GoogleMap map; //Map Instance*/
 
-    public static void getMap(GoogleMap mMap){
+    /*public static void getMap(GoogleMap mMap){
         map = mMap;
     } //Retrieve map from map activity
 
     /** The Firebase database object */
-    private static FirebaseDatabase db;
+    /*private static FirebaseDatabase db;
 
     public static void Initialize(final Context context) {
         if (!initialized) {
@@ -294,7 +291,7 @@ public class FirebaseHelper {
     }
 
     /** This is called once we initialize the firebase database object */
-    private static void OnDatabaseInitialized() {
+    /*private static void OnDatabaseInitialized() {
         //final GenericTypeIndicator<ArrayList<String>> t = new GenericTypeIndicator<ArrayList<String>>() {};
         db = FirebaseDatabase.getInstance();
 
@@ -306,7 +303,6 @@ public class FirebaseHelper {
     }
 
     private static void collectBasic_Stop_info(){
-        do_operations();
         DatabaseReference stop = db.getReference().child("Basic_Stops");
         stop.addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
@@ -358,27 +354,6 @@ public class FirebaseHelper {
 
             }
         });
-
-        /*local.addListenerForSingleValueEvent(new ValueEventListener() {
-            @Override
-            public void onDataChange(DataSnapshot dataSnapshot) {
-                for(DataSnapshot data : dataSnapshot.getChildren()){
-                    if(data.getKey().compareTo("Sunday Service") == 0){
-                        GenericTypeIndicator<ArrayList<Route_service>> t = new GenericTypeIndicator<ArrayList<Route_service>>(){};
-                        ArrayList<Route_service> temp = data.getValue(t);
-                        Log.d("Long Message", "onDataChange: " + temp.size());
-                    }
-                }
-                Stop2 s = dataSnapshot.getValue(Stop2.class);
-
-            }
-
-            @Override
-            public void onCancelled(DatabaseError databaseError) {
-
-            }
-        });*/
-
 
 
         local = table.child("Stop: 371");
@@ -631,8 +606,8 @@ public class FirebaseHelper {
         ArrayList<Route_service> end_service = end_info.getTime_schedule();
 
         Calendar now = Calendar.getInstance();
-        //String current_time = now.get(Calendar.HOUR_OF_DAY) + ":" + now.get(Calendar.MINUTE) + ":" + now.get(Calendar.SECOND);
-        String current_time = "17:32:04"; //Temp
+        String current_time = now.get(Calendar.HOUR_OF_DAY) + ":" + now.get(Calendar.MINUTE) + ":" + now.get(Calendar.SECOND);
+        //String current_time = "17:32:04"; //Temp
 
         //Calculate the distance to estimate time? Temp
         //float[] results = new float[1];
@@ -738,14 +713,16 @@ public class FirebaseHelper {
                 size += service_stop_mapping.get(service).size();
             }
             final int total_size = size;
+            final HashMap<String, HashSet<String>> possible_route_stops = new HashMap<>(); //Route name is the key, Hashset contains all possible stop for that route
             for(String service : service_stop_mapping.keySet()){
+                Log.d("Long Message", "find_transit_helper: " + service);
                 final ArrayList<String> stop = service_stop_mapping.get(service);
-                final HashMap<String, HashSet<String>> possible_route_stops = new HashMap<>(); //Route name is the key, Hashset contains all possible stop for that route
                 final ArrayList<String> target_stop_key_set = new ArrayList<String>(target_route.keySet());
                 for(String stop_info : stop){
                     String [] split_stop_info = stop_info.split(":"); //0 is the stop_id, 1 is the service id
                     final String stop_id = split_stop_info[0];
                     final String service_id = split_stop_info[1];
+                    Log.d("Long Message", "find_transit_helper: real " + service_id);
                     DatabaseReference operation_route_info = db.getReference().child("Operation Route").child("Stop: " + stop_id);
                     operation_route_info.addListenerForSingleValueEvent(new ValueEventListener() {
                         @Override
@@ -801,6 +778,13 @@ public class FirebaseHelper {
     private static void find_transit_finish(int total_size, int current_size, final HashMap<String, HashSet<String>> possible_route_stops, final HashMap<String, ArrayList<Route_service>> target_route, final String end_stop_id){
         Log.d("Long Message", "get_transit_finish: current size " + current_size + "   total   " + total_size);
         if(total_size == current_size){ //Ready
+            for(String s : possible_route_stops.keySet()){
+                HashSet<String> set = possible_route_stops.get(s);
+                for(String x : set){
+                    Log.d("Long Message", "find_transit_finish: route   " + x);
+                }
+
+            }
             final HashMap<String,ArrayList<String>> final_mapping = new HashMap<>(); //Key is the service id and route name, value is the reachable stop by backtracing the services of final stop and the service id for starting stop
             final int size = possible_route_stops.keySet().size();
             final int[] count_helper = {0};
@@ -984,6 +968,9 @@ public class FirebaseHelper {
     private static void get_transit_schedule_finish(HashMap<String,ArrayList<String>> mapper, HashMap<String, ArrayList<Route_service>> all_stop_service_info, int total_size, int current_size){
         // Mapper : 0 distance, 1 reachable stop for starting service, 2 reachable stop for end stop by backtrace, 3 transit route name, 4 starting service id, 6 is the transit time
         if(total_size == current_size){ // Collect all info together
+            for(String s : mapper.keySet()){
+                Log.d("Long Message ", "get_transit_schedule_finish: " + s);
+            }
             Log.d("Long Message", "get_transit_schedule_finish: finish get called");
             Marker start = find_transit_helper_arr.get(0);
             Marker end = find_transit_helper_arr.get(1);
@@ -997,18 +984,25 @@ public class FirebaseHelper {
             String transit_time = "12:00:00"; // Temp
             String depart_time = "0";
             String target_service_id = "";
+            HashMap<String, ArrayList<String>> all_info_collections = new HashMap<>(); // Will store one quickest transfer info for each route
+
 
             for(String info : mapper.keySet()){
+                ArrayList<String> collection = new ArrayList<>(); //Compare collection
                 String service = info.split(":")[0];
                 for(Route_service route_service : start_service){
                     if(route_service.service_id.compareTo(service) == 0){
                         Log.d("Long Message", "get_transit_schedule_finish: start time  " + route_service.getTime() + " route  " + route_service.getRoute_id());
+                        collection.add(route_service.getTime()); // 0 for starting time
+                        collection.add(route_service.getRoute_id()); // 1 for depart route id
                     }
                 }
                 for(Route_service route_service : all_stop_service_info.get(mapper.get(info).get(1))){
                     if(route_service.service_id.compareTo(service) == 0){
                         Log.d("Long Message", "get_transit_schedule_finish: transit time  " + route_service.getTime() + " route  " + route_service.getRoute_id() + "   Stop id   " + mapper.get(info).get(1));
                         transit_time = route_service.getTime();
+                        collection.add(route_service.getTime()); // 2 for Take off time
+                        //collection.add(mapper.get(info).get(1));
                     }
                 }
                 for(Route_service route_service : all_stop_service_info.get(mapper.get(info).get(2))){
@@ -1018,6 +1012,9 @@ public class FirebaseHelper {
                             depart_time = route_service.getTime();
                             target_service_id = route_service.getService_id();
                             Log.d("Long Message", "get_transit_schedule_finish: depart time   " + depart_time + "  depart route id  " + mapper.get(info).get(3));
+                            collection.add(depart_time); // 3 for transit depart time
+                            collection.add(mapper.get(info).get(3)); // 4 for transit route name
+                            collection.add(mapper.get(info).get(2)); // 5 for transit stop id
                             break;
                         }
                     }
@@ -1025,21 +1022,24 @@ public class FirebaseHelper {
                 for(Route_service route_service : end_service){
                     if(route_service.getService_id().compareTo(target_service_id) == 0){
                         Log.d("Long Message ", "get_transit_schedule_finish: " + route_service.getService_id() + "   route name   " + route_service.getRoute_id() +  "  arrive time  " + route_service.getTime());
+                        collection.add(route_service.getTime()); // 6 for arrive time
+                    }
+                }
+                if(all_info_collections.get(collection.get(1)) == null){
+                    all_info_collections.put(collection.get(1), collection);
+                }
+                else{
+                    int difference = InfoWindowDialog.compareTime(all_info_collections.get(collection.get(1)).get(6), collection.get(6));
+                    if(difference < 0){
+                        all_info_collections.put(collection.get(1), collection);
                     }
                 }
             }
-        }
-    }
 
-    private static void check_schedule_for_transit(){
-        ArrayList<String> start_stop = new ArrayList<>();
-        start_stop.add("26");
-        start_stop.add("928");
-        ArrayList<String> end_stop = new ArrayList<>();
-        end_stop.add("26");
-        end_stop.add("281");
-        end_stop.add("284");
-        HashMap<String, ArrayList<String>> route_service_mapping = new HashMap<>(); //key is the service id, arraylist contains all the reachable stop for that service id
+            Schdeule_info_class information_class = new Schdeule_info_class();
+            information_class.setSchedule_info(all_info_collections);
+
+        }
     }
 
     private static float calculateDistance(LatLng start_position, LatLng end_position){
@@ -1048,6 +1048,97 @@ public class FirebaseHelper {
         return results[0];
     }
 
+    private static void get_bus_info_helper(ArrayList<String> stop_ids){
+
+        final int total_size = stop_ids.size(); // The num of stops we need to query
+        final int count_helper[] = {0};
+
+        Calendar cal = Calendar.getInstance(); //Get current date
+        cal.setTime(cal.getTime());
+        final int time_identifier = cal.get(Calendar.DAY_OF_WEEK); // 0 for weekday, 1 for Saturday, 2 for Sunday
+
+        final HashMap<String, ArrayList<Route_service>> all_stop_service_info = new HashMap<>(); // Hashmap to catch all stop service info
+        final HashMap<String, Stop> all_stop_basic_info = new HashMap<>(); // Hashmap to catch all stop basic info, key is the stop_id
+
+        for(final String stop_id : stop_ids){ //Query stop one by one
+            DatabaseReference stop_info = db.getReference().child("Stops").child("Stop: " + stop_id);
+            ArrayList<Route_service> service_temp = new ArrayList<>();
+            all_stop_service_info.put(stop_id, service_temp);
+
+            stop_info.addListenerForSingleValueEvent(new ValueEventListener() {
+                @Override
+                public void onDataChange(DataSnapshot dataSnapshot) {
+                    Stop stop = dataSnapshot.getValue(Stop.class);
+                    all_stop_basic_info.put(stop_id, stop);
+                    if(time_identifier == 7){ // Saturday
+                        for(DataSnapshot data : dataSnapshot.getChildren()){
+                            //Log.d("Long Message", "onDataChange: Saturday  " + data.getKey());
+                            if(data.getKey().compareTo("Saturday Service") == 0){
+                                GenericTypeIndicator<ArrayList<Route_service>> t = new GenericTypeIndicator<ArrayList<Route_service>>(){};
+                                ArrayList<Route_service> route_services = data.getValue(t);
+                                all_stop_service_info.get(stop_id).addAll(route_services);
+                            }
+                            else if(data.getKey().compareTo("Special_Saturday Service") == 0){
+                                GenericTypeIndicator<ArrayList<Route_service>> t = new GenericTypeIndicator<ArrayList<Route_service>>(){};
+                                ArrayList<Route_service> route_services = data.getValue(t);
+                                all_stop_service_info.get(stop_id).addAll(route_services);
+                            }
+                        }
+                    }
+                    else if(time_identifier == 0){ // Sunday
+                        for(DataSnapshot data : dataSnapshot.getChildren()){
+                            //Log.d("Long Message", "onDataChange: Sunday " + data.getKey());
+                            if(data.getKey().compareTo("Saturday Service") == 0){
+                                GenericTypeIndicator<ArrayList<Route_service>> t = new GenericTypeIndicator<ArrayList<Route_service>>(){};
+                                ArrayList<Route_service> route_services = data.getValue(t);
+                                all_stop_service_info.get(stop_id).addAll(route_services);
+                            }
+                            else if(data.getKey().compareTo("Special_Sunday Service") == 0){
+                                GenericTypeIndicator<ArrayList<Route_service>> t = new GenericTypeIndicator<ArrayList<Route_service>>(){};
+                                ArrayList<Route_service> route_services = data.getValue(t);
+                                all_stop_service_info.get(stop_id).addAll(route_services);
+                            }
+                        }
+                    }
+                    else{ //Workday
+                        for(DataSnapshot data : dataSnapshot.getChildren()){
+                            //Log.d("Long Message", "onDataChange: Saturday  " + data.getKey());
+                            if(data.getKey().compareTo("Weekday Service") == 0){
+                                GenericTypeIndicator<ArrayList<Route_service>> t = new GenericTypeIndicator<ArrayList<Route_service>>(){};
+                                ArrayList<Route_service> route_services = data.getValue(t);
+                                all_stop_service_info.get(stop_id).addAll(route_services);
+                            }
+                            else if(data.getKey().compareTo("Special_Weekday Service") == 0){
+                                GenericTypeIndicator<ArrayList<Route_service>> t = new GenericTypeIndicator<ArrayList<Route_service>>(){};
+                                ArrayList<Route_service> route_services = data.getValue(t);
+                                all_stop_service_info.get(stop_id).addAll(route_services);
+                            }
+                        }
+                    }
+                    count_helper[0]++;
+                    get_bus_info_helper_finish(all_stop_basic_info, all_stop_service_info, total_size, count_helper[0]);
+                }
+
+                @Override
+                public void onCancelled(DatabaseError databaseError) {
+
+                }
+            });
+        }
+
+    }
+
+    private static void get_bus_info_helper_finish(HashMap<String, Stop> all_stop_basic_info, HashMap<String, ArrayList<Route_service>> all_stop_service_info, int total_size, int current_size){
+        if(current_size == total_size){
+            //Define your operation
+            for(String s : all_stop_basic_info.keySet()){
+                Log.d("Long Message", "get_bus_info_helper_finish: " + all_stop_basic_info.get(s).getStop_id());
+            }
+            for(String s : all_stop_service_info.keySet()){
+                Log.d("Long Message", "get_bus_info_helper_finish: " + all_stop_service_info.get(s).get(0).getRoute_id());
+            }
+        }
+    }
     /*private static void show_transfer_stop_helper(ArrayList<String> stop_id_arr){
         for(int i = 0; i < stop_id_arr.size(); i++){
             DatabaseReference stop = db.getReference().child("Stops").child("Stop: " + stop_id_arr.get(i)).child();
